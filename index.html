@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Board Meeting Pulse — Sustainable Boards</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:#F2F4FA;color:#111;min-height:100vh;-webkit-font-smoothing:antialiased}
+#root{min-height:100vh}
+input,textarea,button{font-family:'Outfit',sans-serif}
+button{cursor:pointer}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.95)}}
+@keyframes popIn{0%{transform:scale(.85);opacity:0}70%{transform:scale(1.04)}100%{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.au{animation:fadeUp .4s ease both}
+</style>
+</head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel" id="app-script">
+const {useState,useEffect,useRef} = React;
+
+const B={navy:"#1B2F72",navyDk:"#0F1D4F",navyLt:"#EEF1F9",navyXl:"#F6F7FC",gold:"#C9A535",goldLt:"#FBF5E0",teal:"#0B7A6E",tealLt:"#E6F4F2",white:"#fff",border:"#DDD9D1",borderLt:"#ECEAE5",text:"#0F0F0F",muted:"#585858",light:"#999",success:"#1A7A42",warn:"#A87018",danger:"#B02020"};
+const WHL=["#E8382A","#F06A2A","#F5921E","#F7C228","#8DC63F","#00A650","#00B5AA","#009FD4","#4B5EA8","#8B52A1"];
+const MEETING_TYPES=[{id:"board",label:"Board Meeting",icon:"🏛"},{id:"risk",label:"Risk Committee",icon:"⚠️"},{id:"audit",label:"Audit Committee",icon:"🔍"},{id:"remco",label:"RemCo",icon:"👥"},{id:"nomco",label:"NomCo",icon:"🎯"},{id:"custom",label:"Custom…",icon:"✏️"}];
+const DURATIONS=["1 hr","1.5 hrs","2 hrs","2.5 hrs","3 hrs","3+ hrs"];
+const FORMATS=[{id:"inperson",label:"In Person",icon:"🏛"},{id:"online",label:"Online",icon:"💻"},{id:"hybrid",label:"Hybrid",icon:"🔄"}];
+const PACK_SIZES=["< 50 pp","50–100 pp","100–150 pp","150+ pp"];
+const ROLES={chair:{pin:"2024",label:"Chair",dashTitle:"Chair's Dashboard",color:B.navy,colorLt:B.navyLt,icon:"👤",desc:"Results, trends & question configuration"},cosec:{pin:"5678",label:"Company Secretary",dashTitle:"Company Secretary Dashboard",color:B.teal,colorLt:B.tealLt,icon:"📋",desc:"Full results & trend data access"}};
+
+const BASE_Q=[
+  {id:1,dim:"Preparation & Information",text:"The papers and pre-reading provided sufficient, high-quality information to make well-informed decisions today.",type:"rating"},
+  {id:2,dim:"Strategic Focus",text:"The meeting maintained an appropriate strategic focus and avoided unnecessary operational detail.",type:"rating"},
+  {id:3,dim:"Inclusion & Voice",text:"All members had a genuine and equal opportunity to contribute to discussions.",type:"rating"},
+  {id:4,dim:"Quality of Debate",text:"Discussion was constructive, appropriately challenging, and free from unhealthy dominance by any individual.",type:"rating"},
+  {id:5,dim:"Decision Clarity",text:"Decisions were made clearly, with ownership, accountability, and next steps agreed.",type:"rating"},
+  {id:6,dim:"Time Management",text:"The agenda and time were managed effectively, giving the right space to the most important matters.",type:"rating"},
+  {id:7,dim:"Chair Facilitation",text:"The Chair facilitated today's meeting effectively, creating the conditions for genuine debate and well-considered decisions.",type:"rating"},
+  {id:8,dim:"Overall Effectiveness",text:"Overall, this was an effective and valuable meeting that made good use of everyone's time.",type:"rating"},
+  {id:9,dim:"Strengths",text:"What worked particularly well in today's meeting?",type:"text",optional:true},
+  {id:10,dim:"One Improvement",text:"What is the single most important improvement for the next meeting?",type:"text",optional:true},
+];
+
+const BANK={
+  risk:[{id:11,dim:"Risk Exposure",text:"The committee received adequate information to assess the organisation's key risk exposures.",type:"rating"},{id:12,dim:"Regulatory Confidence",text:"The committee is confident that key regulatory obligations are being appropriately monitored.",type:"rating"},{id:13,dim:"Risk Culture",text:"The committee received sufficient visibility of risk culture across the organisation.",type:"rating"}],
+  audit:[{id:11,dim:"Financial Reporting",text:"The committee received sufficient assurance on the integrity of financial reporting.",type:"rating"},{id:12,dim:"External Auditor",text:"The relationship with the external auditor was appropriately independent and constructive.",type:"rating"},{id:13,dim:"Internal Controls",text:"The committee has adequate visibility of the effectiveness of internal controls.",type:"rating"}],
+  remco:[{id:11,dim:"Remuneration Framework",text:"The committee has clear sight of whether the remuneration framework is aligned with strategy and values.",type:"rating"},{id:12,dim:"Performance Assessment",text:"The performance assessment process was fair, evidence-based, and rigorous.",type:"rating"},{id:13,dim:"Market Alignment",text:"The committee received adequate market data to inform its remuneration decisions.",type:"rating"}],
+  nomco:[{id:11,dim:"Succession Readiness",text:"The committee has adequate visibility of succession readiness for key leadership roles.",type:"rating"},{id:12,dim:"Board Composition",text:"The committee gave appropriate attention to skills, diversity, and balance of the board.",type:"rating"},{id:13,dim:"Pipeline Quality",text:"The pipeline of potential candidates discussed was sufficiently deep and diverse.",type:"rating"}],
+  board:[{id:11,dim:"Risk & Regulatory",text:"The board gave appropriate attention to key risks and regulatory matters.",type:"rating"},{id:12,dim:"Culture & Conduct",text:"The tone and conduct of this meeting reflected the values of this organisation.",type:"rating"},{id:13,dim:"Future Readiness",text:"The meeting gave sufficient attention to digital and future readiness.",type:"rating"}],
+  custom:[{id:11,dim:"Stakeholder Focus",text:"The meeting gave appropriate consideration to the interests of key stakeholders.",type:"rating"},{id:12,dim:"Information Quality",text:"The quality and depth of information was appropriate for the decisions required.",type:"rating"}],
+};
+
+const DEMO_SUBS=[
+  {1:4,2:3,3:5,4:4,5:4,6:3,7:4,8:4,9:"The CEO's strategic presentation was exceptionally clear",10:"Pre-reading arrived less than 48 hours before the meeting"},
+  {1:5,2:4,3:4,4:4,5:5,6:4,7:5,8:4,9:"The CFO's risk update gave the board exactly what it needed",10:"The technology item was cut short — it deserved more time"},
+  {1:4,2:4,3:5,4:3,5:4,6:4,7:4,8:4,10:"One voice dominated the sustainability discussion"},
+  {1:5,2:5,3:4,4:4,5:4,6:4,7:5,8:5,9:"Best-structured agenda we have had in two years"},
+  {1:4,2:4,3:3,4:4,5:4,6:4,7:4,8:4,10:"Some members did not contribute to the M&A discussion"},
+  {1:5,2:4,3:4,4:5,5:5,6:3,7:4,8:4,9:"Good honest challenge on the budget assumptions",10:"The second half of the meeting was noticeably rushed"},
+  {1:4,2:4,3:4,4:4,5:3,6:3,7:4,8:4,10:"The investment decision lacked clear accountability"},
+];
+
+const TREND_CLIENTS=[
+  {id:"A",name:"Meridian Financial Group",industry:"Financial Services",boardSize:10,mtgs:[
+    {date:"Sep 2024",title:"Q3 2024",n:8,scores:[4.1,3.7,4.3,3.8,3.9,3.6,4.0,3.9],duration:"2 hrs",format:"In Person",packSize:"100–150 pp",t7:["Strong CEO presentation on M&A strategy"],t8:["Pre-reads arrived with less than 24 hours notice"]},
+    {date:"Dec 2024",title:"Q4 2024",n:9,scores:[4.3,4.0,4.2,4.1,4.2,4.0,4.2,4.2],duration:"2.5 hrs",format:"Hybrid",packSize:"100–150 pp",t7:["Excellent debate on the proposed acquisition"],t8:["Risk committee report needed more time"]},
+    {date:"Mar 2025",title:"Q1 2025",n:10,scores:[4.6,4.4,4.5,4.4,4.6,4.3,4.6,4.5],duration:"2 hrs",format:"In Person",packSize:"50–100 pp",t7:["Best-structured meeting in two years"],t8:["Digital literacy discussion could go deeper"]},
+  ]},
+  {id:"B",name:"Northgate Healthcare Trust",industry:"Healthcare",boardSize:9,mtgs:[
+    {date:"Nov 2024",title:"Q3 2024",n:7,scores:[3.3,3.1,3.7,3.0,3.4,3.5,3.1,3.2],duration:"3 hrs",format:"Online",packSize:"150+ pp",t7:["Finance committee report was well structured"],t8:["One member consistently dominating discussion"]},
+    {date:"Jan 2025",title:"Q4 2024",n:7,scores:[3.6,3.4,3.9,3.3,3.7,3.7,3.5,3.5],duration:"2.5 hrs",format:"Hybrid",packSize:"100–150 pp",t7:["Improvement in inclusion following coaching session"],t8:["Strategic items still being cut short"]},
+    {date:"Mar 2025",title:"Q1 2025",n:8,scores:[3.9,3.8,4.1,3.7,3.9,4.0,4.1,3.9],duration:"2 hrs",format:"In Person",packSize:"50–100 pp",t7:["Chair facilitation significantly improved"],t8:["Risk register presentation was rushed"]},
+  ]},
+];
+
+const SCALE_LABELS=["","Strongly Disagree","Disagree","Neutral","Agree","Strongly Agree"];
+const SCALE_COLS=["","#B02020","#C86020","#A87018","#1A7A42","#1B2F72"];
+const av=(arr)=>{const v=arr.filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b)/v.length:null;};
+const sCol=(s)=>s>=4.5?B.navy:s>=4?B.success:s>=3?B.warn:B.danger;
+const sLbl=(s)=>s>=4.5?"Excellent":s>=4?"Good":s>=3?"Fair":"Needs Attention";
+const fmt=(n)=>n?n.toFixed(1):"—";
+
+function SBWheel({size=44}){
+  const cx=size/2,cy=size/2,r2=size*.47,r1=r2*.36,gap=2.5;
+  const seg=(i)=>{
+    const s1=-90+i*36+gap/2,s2=-90+(i+1)*36-gap/2,ra=d=>d*Math.PI/180;
+    const pt=(r,a)=>[cx+r*Math.cos(ra(a)),cy+r*Math.sin(ra(a))];
+    const [x1,y1]=pt(r1,s1),[x2,y2]=pt(r2,s1),[x3,y3]=pt(r2,s2),[x4,y4]=pt(r1,s2),f=v=>v.toFixed(2);
+    return `M${f(x1)} ${f(y1)} L${f(x2)} ${f(y2)} A${f(r2)} ${f(r2)} 0 0 1 ${f(x3)} ${f(y3)} L${f(x4)} ${f(y4)} A${f(r1)} ${f(r1)} 0 0 0 ${f(x1)} ${f(y1)}Z`;
+  };
+  return <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{flexShrink:0}}>{WHL.map((c,i)=><path key={i} d={seg(i)} fill={c}/>)}</svg>;
+}
+function SBLogo({size=44,ts=15}){
+  return <div style={{display:"flex",alignItems:"center",gap:12}}><SBWheel size={size}/><div><div style={{fontSize:ts,fontWeight:700,color:B.navy,letterSpacing:"1.5px",textTransform:"uppercase",lineHeight:1.1}}>Sustainable</div><div style={{fontSize:ts,fontWeight:700,color:B.navy,letterSpacing:"1.5px",textTransform:"uppercase",lineHeight:1.1}}>Boards</div></div></div>;
+}
+function DemoBadge(){return <div style={{position:"fixed",top:16,right:16,zIndex:999,padding:"6px 14px",borderRadius:999,background:B.navy,color:B.gold,fontSize:10,fontWeight:700,letterSpacing:"1.5px",boxShadow:"0 4px 16px rgba(27,47,114,.3)"}}>● DEMO</div>;}
+
+function ScoreRing({score,size=96,color}){
+  const r=size*.42,circ=2*Math.PI*r,pct=score?score/5:0,col=color||(score?sCol(score):B.border);
+  return(
+    <div style={{position:"relative",width:size,height:size,flexShrink:0}}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{transform:"rotate(-90deg)"}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={B.navyXl} strokeWidth={size*.08}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={size*.08} strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} strokeLinecap="round" style={{transition:"stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1)"}}/>
+      </svg>
+      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:size*.3,fontWeight:600,color:col,lineHeight:1}}>{score?score.toFixed(1):"—"}</div>
+        <div style={{fontSize:size*.12,color:B.light}}>/ 5.0</div>
+      </div>
+    </div>
+  );
+}
+
+function BarRow({label,score,color}){
+  const [w,setW]=useState(0);
+  useEffect(()=>{if(score)setTimeout(()=>setW(score/5*100),200);},[score]);
+  return(
+    <div style={{marginBottom:"1rem"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/><span style={{fontSize:13}}>{label}</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {score&&<span style={{fontSize:10,color:sCol(score),fontWeight:600}}>{sLbl(score).toUpperCase()}</span>}
+          <span style={{fontSize:14,fontWeight:600,color:score?sCol(score):B.light,minWidth:28,textAlign:"right"}}>{fmt(score)}</span>
+        </div>
+      </div>
+      <div style={{height:7,background:B.navyXl,borderRadius:6,overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${w}%`,background:color,borderRadius:6,transition:"width 1.3s cubic-bezier(.4,0,.2,1)"}}/>
+      </div>
+    </div>
+  );
+}
+
+function LiveDot(){return <span style={{display:"inline-flex",alignItems:"center",gap:5}}><span style={{width:7,height:7,borderRadius:"50%",background:"#22C55E",animation:"pulse 1.8s ease-in-out infinite"}}/><span style={{fontSize:11,color:"#22C55E",fontWeight:600,letterSpacing:"1px"}}>LIVE</span></span>;}
+
+function Pill({options,value,onChange}){
+  return(
+    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+      {options.map(opt=>{
+        const id=typeof opt==="string"?opt:opt.id,label=typeof opt==="string"?opt:opt.label,icon=typeof opt==="object"?opt.icon:null,sel=value===id;
+        return <button key={id} onClick={()=>onChange(sel?"":id)} style={{padding:"8px 14px",borderRadius:999,border:`1.5px solid ${sel?B.navy:B.border}`,background:sel?B.navyLt:B.navyXl,color:sel?B.navy:B.muted,fontSize:13,fontWeight:sel?600:400,transition:"all .15s",display:"flex",alignItems:"center",gap:5}}>{icon&&<span style={{fontSize:13}}>{icon}</span>}{label}</button>;
+      })}
+    </div>
+  );
+}
+
+function MetaChip({icon,label,value}){
+  if(!value)return null;
+  return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",background:B.navyXl,borderRadius:8,border:`1px solid ${B.border}`}}><span style={{fontSize:13}}>{icon}</span><span style={{fontSize:10,color:B.light,fontWeight:600,textTransform:"uppercase",letterSpacing:"1px"}}>{label}</span><span style={{fontSize:13,fontWeight:600,color:B.navy}}>{value}</span></div>;
+}
+
+function QRDisplay({url,size=152}){
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!ref.current)return;
+    ref.current.innerHTML="";
+    const tryGen=()=>{
+      if(window.QRCode){
+        try{new window.QRCode(ref.current,{text:url||"https://pulse.sustainable-boards.com",width:size,height:size,colorDark:B.navy,colorLight:"#ffffff",correctLevel:window.QRCode.CorrectLevel.H});}
+        catch(e){}
+      } else {setTimeout(tryGen,300);}
+    };
+    tryGen();
+  },[url,size]);
+  return <div ref={ref} style={{lineHeight:0,display:"inline-block"}}/>;
+}
+
+let LIVE_SUBS=[...DEMO_SUBS];
+
+function App(){
+  const [clientName,setClientName]=useState("");
+  const [mtId,setMtId]=useState("board");
+  const [customType,setCustomType]=useState("");
+  const [meetingDate,setMeetingDate]=useState(new Date().toISOString().slice(0,10));
+  const [duration,setDuration]=useState("");
+  const [format,setFormat]=useState("");
+  const [packSize,setPackSize]=useState("");
+  const [screen,setScreen]=useState("setup");
+  const [vk,setVK]=useState(0);
+  const [questions,setQuestions]=useState(BASE_Q.map(q=>({...q})));
+  const [bankQ,setBankQ]=useState([]);
+  const [qIdx,setQIdx]=useState(0);
+  const [answers,setAnswers]=useState({});
+  const [submitting,setSubmitting]=useState(false);
+  const [accessRole,setAccessRole]=useState(null);
+  const [pin,setPin]=useState("");
+  const [pinErr,setPinErr]=useState(false);
+  const [shaking,setShaking]=useState(false);
+  const [copied,setCopied]=useState(false);
+  const [dashTab,setDashTab]=useState("results");
+  const [trendId,setTrendId]=useState("A");
+  const [editIdx,setEditIdx]=useState(null);
+
+  const go=(s)=>{setVK(k=>k+1);setScreen(s);};
+  const mtDef=MEETING_TYPES.find(m=>m.id===mtId)||MEETING_TYPES[0];
+  const mtName=mtId==="custom"?(customType||"Committee Meeting"):mtDef.label;
+  const toolName=`${mtName} Pulse`;
+  const mtTitle=clientName?`${clientName} — ${mtName}`:mtName;
+  const dateFmt=meetingDate?new Date(meetingDate).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}):"";
+  const role=accessRole?ROLES[accessRole]:null;
+  const activeQ=questions.filter(q=>q.active!==false);
+  const q=activeQ[qIdx]||{};
+  const cur=answers[q.id];
+  const ratingQs=questions.filter(q=>q.type==="rating"&&q.active!==false);
+  const dimAvgs=ratingQs.map(q=>av(LIVE_SUBS.map(s=>s[q.id])));
+  const overall=av(dimAvgs.filter(Boolean));
+  const texts9=LIVE_SUBS.map(s=>s[9]).filter(Boolean);
+  const texts10=LIVE_SUBS.map(s=>s[10]).filter(Boolean);
+  const tc=TREND_CLIENTS.find(c=>c.id===trendId)||TREND_CLIENTS[0];
+  const slug=clientName.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"")||"your-board";
+  const surveyUrl=`https://pulse.sustainable-boards.com/${slug}/${mtId==="custom"?"meeting":mtId}`;
+  const fmtObj=FORMATS.find(f=>f.id===format);
+
+  useEffect(()=>{const k=mtId==="custom"?"custom":mtId;setBankQ((BANK[k]||BANK.board).map(q=>({...q})));},[mtId]);
+
+  const handleRating=(val)=>{setAnswers(a=>({...a,[q.id]:val}));setTimeout(()=>{if(qIdx<activeQ.length-1){setVK(k=>k+1);setQIdx(i=>i+1);}},360);};
+
+  const handlePin=(d)=>{
+    if(pin.length>=4)return;
+    const np=pin+d;setPin(np);
+    if(np.length===4){
+      if(np===ROLES[accessRole].pin){setTimeout(()=>{go("dashboard");setDashTab("results");},200);}
+      else{setShaking(true);setPinErr(true);setTimeout(()=>{setPin("");setPinErr(false);setShaking(false);},800);}
+    }
+  };
+
+  const submitSurvey=()=>{setSubmitting(true);setTimeout(()=>{LIVE_SUBS.push({...answers,ts:new Date().toISOString()});setSubmitting(false);go("complete");},800);};
+  const addFromBank=(bq)=>{setQuestions(qs=>[...qs,{...bq,active:true}]);setBankQ(bqs=>bqs.filter(q=>q.id!==bq.id));};
+  const copyLink=()=>{try{navigator.clipboard.writeText(surveyUrl).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});}catch(e){}};
+
+  const pageStyle={minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:"2rem 1.25rem",background:`linear-gradient(145deg,${B.navyLt} 0%,#F2F4FA 70%)`};
+  const cardStyle={background:B.white,borderRadius:20,padding:"2.5rem",maxWidth:600,width:"100%",border:`1px solid ${B.border}`,boxShadow:"0 8px 48px rgba(27,47,114,.09)",animation:"fadeUp .4s ease both"};
+  const dcStyle={background:B.white,borderRadius:16,padding:"1.75rem",border:`1px solid ${B.border}`,marginBottom:"1.25rem",boxShadow:"0 2px 16px rgba(27,47,114,.06)"};
+  const secLabel={fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:"0.6rem"};
+  const btnP=(col=B.navy)=>({padding:"16px",background:col,color:B.white,border:"none",borderRadius:12,fontSize:13,fontWeight:600,letterSpacing:"1.5px",textTransform:"uppercase",width:"100%"});
+  const btnG={padding:"12px 24px",background:"transparent",color:B.navy,border:`1.5px solid ${B.border}`,borderRadius:10,fontSize:13};
+
+  if(screen==="setup") return(
+    <div style={{...pageStyle,background:`linear-gradient(145deg,${B.navyDk} 0%,${B.navy} 100%)`}}>
+      <div style={{background:B.white,borderRadius:24,padding:"2.5rem",maxWidth:600,width:"100%",boxShadow:"0 32px 80px rgba(0,0,0,.35)",animation:"popIn .5s ease both",maxHeight:"95vh",overflowY:"auto"}}>
+        <div style={{marginBottom:"1.5rem"}}><SBLogo size={46} ts={16}/></div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.9rem",color:B.navy,marginBottom:"0.3rem"}}>Demo Setup</div>
+        <p style={{fontSize:13,color:B.muted,fontWeight:300,lineHeight:1.7,marginBottom:"1.75rem"}}>Personalise this session before presenting. All fields optional.</p>
+
+        <div style={{marginBottom:"1.25rem"}}>
+          <div style={secLabel}>Meeting Type</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {MEETING_TYPES.map(mt=>{const sel=mtId===mt.id;return(<button key={mt.id} onClick={()=>setMtId(mt.id)} style={{padding:"8px 14px",borderRadius:999,border:`1.5px solid ${sel?B.navy:B.border}`,background:sel?B.navyLt:B.navyXl,color:sel?B.navy:B.muted,fontSize:13,fontWeight:sel?600:400,display:"flex",alignItems:"center",gap:5,transition:"all .15s"}}><span>{mt.icon}</span>{mt.label}</button>);})}
+          </div>
+          {mtId==="custom"&&<input style={{width:"100%",marginTop:10,padding:"11px 14px",fontSize:14,border:`1.5px solid ${B.navy}`,borderRadius:10,background:B.navyXl,color:B.text,outline:"none"}} placeholder="Enter committee name…" value={customType} onChange={e=>setCustomType(e.target.value)} autoFocus/>}
+        </div>
+
+        <div style={{marginBottom:"1.5rem",padding:"12px 16px",background:B.navyLt,borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
+          <SBWheel size={26}/>
+          <div><div style={{fontSize:10,color:B.light,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:2}}>Tool name</div><div style={{fontSize:16,fontWeight:700,color:B.navy}}>{toolName}</div></div>
+        </div>
+
+        <div style={{marginBottom:"1.5rem",padding:"1.25rem",background:"#F8F9FC",borderRadius:12,border:`1px solid ${B.borderLt}`}}>
+          <div style={{fontSize:11,color:B.navy,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"1rem"}}>Meeting Configuration — Chair / CoSec Sets This</div>
+          <div style={{marginBottom:"1rem"}}><div style={secLabel}>Duration</div><Pill options={DURATIONS} value={duration} onChange={setDuration}/></div>
+          <div style={{marginBottom:"1rem"}}><div style={secLabel}>Format</div><Pill options={FORMATS} value={format} onChange={setFormat}/></div>
+          <div><div style={secLabel}>Board Pack Size</div><Pill options={PACK_SIZES} value={packSize} onChange={setPackSize}/></div>
+        </div>
+
+        <div style={{marginBottom:"1rem"}}><div style={secLabel}>Client / Organisation</div><input style={{width:"100%",padding:"12px 14px",fontSize:14,border:`1.5px solid ${B.border}`,borderRadius:10,background:B.navyXl,color:B.text,outline:"none"}} placeholder="e.g. Kerry Group, Axa Insurance…" value={clientName} onChange={e=>setClientName(e.target.value)}/></div>
+        <div style={{marginBottom:"1.75rem"}}><div style={secLabel}>Meeting Date</div><input style={{width:"100%",padding:"12px 14px",fontSize:14,border:`1.5px solid ${B.border}`,borderRadius:10,background:B.navyXl,color:B.text,outline:"none"}} type="date" value={meetingDate} onChange={e=>setMeetingDate(e.target.value)}/></div>
+
+        <button onClick={()=>go("welcome")} style={btnP()}>Launch Demo →</button>
+        <div style={{marginTop:"1.25rem",padding:"10px 14px",borderRadius:10,background:B.navyXl,fontSize:12,color:B.muted,lineHeight:1.6}}><strong style={{color:B.navy}}>Demo includes:</strong> 7 pre-loaded responses · Live QR code · Chair PIN 2024 · CoSec PIN 5678 · Chair Facilitation question · Trend analysis · Committee question banks</div>
+      </div>
+    </div>
+  );
+
+  if(screen==="welcome") return(
+    <div key={vk} style={pageStyle}>
+      <DemoBadge/>
+      <div style={cardStyle}>
+        <div style={{marginBottom:"1.75rem"}}><SBLogo size={44} ts={15}/></div>
+        <div style={{marginBottom:"1.25rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(1.9rem,5vw,2.7rem)",color:B.navy,lineHeight:1.15,marginBottom:"0.4rem"}}>{mtName}<br/><em>Pulse</em></div>
+          {clientName&&<div style={{fontSize:14,color:B.gold,fontWeight:500}}>{clientName}</div>}
+          {dateFmt&&<div style={{fontSize:12,color:B.light}}>{dateFmt}</div>}
+        </div>
+        <p style={{fontSize:14,color:B.muted,fontWeight:300,lineHeight:1.8,marginBottom:"1.5rem"}}>A confidential {activeQ.length}-question feedback tool to help your Chair improve meeting effectiveness after every session.</p>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",background:B.navyLt,borderRadius:10,marginBottom:"1.75rem"}}>
+          <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><rect x="2.5" y="6" width="9" height="7" rx="1.5" stroke={B.navy} strokeWidth="1.4"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke={B.navy} strokeWidth="1.4" strokeLinecap="round"/></svg>
+          <span style={{fontSize:12,color:B.navy,fontWeight:500}}>All responses are completely anonymous — no personal data is ever recorded</span>
+        </div>
+        <button onClick={()=>{setQIdx(0);setAnswers({});go("survey");}} style={{...btnP(),marginBottom:"1rem"}}>Begin Feedback</button>
+        <div style={{marginBottom:"1.5rem"}}>
+          <div style={{...secLabel,textAlign:"center",marginBottom:"0.6rem"}}>Governance Access</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {["chair","cosec"].map(r=>{const ro=ROLES[r];return(<button key={r} onClick={()=>{setAccessRole(r);setPin("");setPinErr(false);go("pin");}} style={{padding:"14px 10px",background:B.white,border:`1.5px solid ${ro.color}`,borderRadius:12,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}><div style={{width:34,height:34,borderRadius:"50%",background:ro.colorLt,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>{ro.icon}</div><div style={{fontWeight:600,color:ro.color,fontSize:13}}>{ro.label}</div><div style={{fontSize:10,color:B.muted,lineHeight:1.4,textAlign:"center"}}>{ro.desc}</div></button>);})}</div>
+        </div>
+        <div style={{padding:"10px 14px",borderRadius:10,background:B.goldLt,border:`1px dashed ${B.gold}`,fontSize:11,color:"#7A6020"}}><strong>Demo:</strong> Chair PIN <strong>2024</strong> · CoSec PIN <strong>5678</strong></div>
+      </div>
+    </div>
+  );
+
+  if(screen==="survey") return(
+    <div key={vk} style={pageStyle}>
+      <DemoBadge/>
+      <div style={cardStyle}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.75rem"}}><SBLogo size={34} ts={12}/><div style={{textAlign:"right"}}><div style={{fontSize:11,color:B.gold,fontWeight:600}}>{toolName}</div><div style={{fontSize:12,color:B.light}}>{qIdx+1} of {activeQ.length}</div></div></div>
+        <div style={{height:3,background:B.navyXl,borderRadius:3,marginBottom:"2rem",overflow:"hidden"}}><div style={{height:"100%",width:`${(qIdx/activeQ.length)*100}%`,background:B.navy,borderRadius:3,transition:"width .5s ease"}}/></div>
+        <div style={{fontSize:10,letterSpacing:"2.5px",textTransform:"uppercase",color:WHL[qIdx%10],fontWeight:700,marginBottom:"1rem"}}>{q.dim}</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(1.2rem,3.5vw,1.65rem)",color:B.text,lineHeight:1.55,marginBottom:"2.5rem",minHeight:80}}>{q.text}{q.optional&&<span style={{fontSize:".7em",color:B.light,fontStyle:"italic",marginLeft:8}}>(optional)</span>}</div>
+        {q.type==="rating"?(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:"2rem"}}>
+              {[1,2,3,4,5].map(v=>{const sel=cur===v;return(<button key={v} onClick={()=>handleRating(v)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"14px 6px",border:sel?`2px solid ${B.navy}`:`1px solid ${B.border}`,borderRadius:14,background:sel?B.navyLt:"#FAFBFD",transition:"all .15s",transform:sel?"scale(1.06)":"scale(1)"}}><div style={{width:36,height:36,borderRadius:"50%",background:sel?SCALE_COLS[v]:B.navyXl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:600,color:sel?B.white:B.muted,transition:"all .15s"}}>{v}</div><div style={{fontSize:9,color:sel?B.navy:B.light,textAlign:"center",lineHeight:1.3,whiteSpace:"pre-line"}}>{SCALE_LABELS[v].replace(" ","\n")}</div></button>);})}</div>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              {qIdx>0?<button onClick={()=>{setVK(k=>k+1);setQIdx(i=>i-1);}} style={btnG}>← Back</button>:<div/>}
+              {cur&&<button onClick={()=>{if(qIdx<activeQ.length-1){setVK(k=>k+1);setQIdx(i=>i+1);}else submitSurvey();}} style={{padding:"12px 28px",background:B.navy,color:B.white,border:"none",borderRadius:10,fontSize:13,fontWeight:600}}>{qIdx===activeQ.length-1?(submitting?"Submitting…":"Submit Feedback →"):"Next →"}</button>}
+            </div>
+          </>
+        ):(
+          <>
+            <textarea style={{width:"100%",minHeight:110,padding:"14px",fontSize:14,border:`1.5px solid ${B.border}`,borderRadius:10,lineHeight:1.7,resize:"none",background:B.navyXl,outline:"none",color:B.text,marginBottom:"1.5rem"}} placeholder="Share your thoughts…" value={answers[q.id]||""} onChange={e=>setAnswers(a=>({...a,[q.id]:e.target.value}))}/>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <button onClick={()=>{setVK(k=>k+1);setQIdx(i=>i-1);}} style={btnG}>← Back</button>
+              <button onClick={()=>{if(qIdx<activeQ.length-1){setVK(k=>k+1);setQIdx(i=>i+1);}else submitSurvey();}} style={{padding:"12px 28px",background:B.navy,color:B.white,border:"none",borderRadius:10,fontSize:13,fontWeight:600}}>{qIdx===activeQ.length-1?(submitting?"Submitting…":"Submit Feedback →"):"Next →"}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  if(screen==="complete") return(
+    <div key={vk} style={pageStyle}>
+      <DemoBadge/>
+      <div style={{...cardStyle,textAlign:"center"}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:"1.75rem"}}><SBLogo size={44} ts={15}/></div>
+        <div style={{width:68,height:68,background:B.navyLt,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 1.75rem"}}><svg width={28} height={28} viewBox="0 0 28 28" fill="none"><path d="M6 14.5l6 6 10.5-12" stroke={B.navy} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/></svg></div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2.8rem",color:B.navy,marginBottom:"0.75rem"}}>Thank you.</div>
+        <p style={{fontSize:14,color:B.muted,fontWeight:300,lineHeight:1.8,maxWidth:360,margin:"0 auto 1.75rem"}}>Your feedback has been recorded. The Chair and Company Secretary can see it in their dashboards right now.</p>
+        <blockquote style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontStyle:"italic",color:B.muted,borderLeft:`3px solid ${B.gold}`,paddingLeft:"1.25rem",textAlign:"left",lineHeight:1.8,marginBottom:"2rem"}}>"The measure of a great board is not the decisions it makes, but the quality of the conversations it enables."</blockquote>
+        <button onClick={()=>go("welcome")} style={btnG}>Return to Start</button>
+      </div>
+    </div>
+  );
+
+  if(screen==="pin"&&role) return(
+    <div key={vk} style={pageStyle}>
+      <DemoBadge/>
+      <div style={{...cardStyle,maxWidth:400,padding:"2.5rem 2rem",textAlign:"center"}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:"1.5rem"}}><SBLogo size={38} ts={13}/></div>
+        <div style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 18px",background:role.colorLt,border:`1.5px solid ${role.color}`,borderRadius:999,marginBottom:"1.5rem"}}><span style={{fontSize:18}}>{role.icon}</span><div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:role.color}}>{role.label} Access</div><div style={{fontSize:10,color:B.muted}}>{role.desc}</div></div></div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.6rem",color:B.navy,marginBottom:"0.4rem"}}>Enter your PIN</div>
+        <p style={{fontSize:13,color:B.muted,fontWeight:300,marginBottom:"1.75rem"}}>Your 4-digit {role.label} PIN for {toolName}.</p>
+        <div style={{display:"flex",justifyContent:"center",gap:14,marginBottom:"2rem",animation:shaking?"shake .4s ease":"none"}}>{[0,1,2,3].map(i=><div key={i} style={{width:16,height:16,borderRadius:"50%",background:pin.length>i?(pinErr?B.danger:role.color):B.border,transition:"background .2s"}}/>)}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,maxWidth:240,margin:"0 auto 1.5rem"}}>
+          {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=>(<button key={i} onClick={()=>{if(d==="⌫"){setPin(p=>p.slice(0,-1));setPinErr(false);}else if(d!=="")handlePin(String(d));}} style={{padding:"16px 10px",border:`1.5px solid ${pinErr&&d!==""?B.danger:B.border}`,borderRadius:10,background:d===""?"transparent":B.navyXl,cursor:d===""?"default":"pointer",fontSize:16,color:pinErr?B.danger:B.text,visibility:d===""?"hidden":"visible",transition:"all .15s"}}>{d}</button>))}
+        </div>
+        {pinErr&&<p style={{fontSize:12,color:B.danger,marginBottom:"1rem"}}>Incorrect PIN — please try again</p>}
+        <button onClick={()=>{setPin("");setAccessRole(null);go("welcome");}} style={{...btnG,width:"100%"}}>Cancel</button>
+        <div style={{marginTop:"1.25rem",padding:"10px 14px",borderRadius:10,background:B.goldLt,fontSize:11,color:"#7A6020"}}><strong>Demo {role.label} PIN:</strong> {role.pin}</div>
+      </div>
+    </div>
+  );
+
+  if(screen==="dashboard"&&role) return(
+    <div key={vk} style={{minHeight:"100vh",background:"#F2F4FA"}}>
+      <DemoBadge/>
+      <div style={{background:role.color,padding:"1.25rem 2rem",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",boxShadow:"0 4px 24px rgba(15,29,79,.35)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <SBLogo size={34} ts={12}/>
+          <div style={{width:1,height:24,background:"rgba(255,255,255,.2)"}}/>
+          <div><div style={{fontSize:10,color:"rgba(255,255,255,.6)",letterSpacing:"1.5px",textTransform:"uppercase",fontWeight:600}}>{role.dashTitle}</div><div style={{fontSize:13,color:B.white,fontWeight:500}}>{mtTitle}</div></div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:12}}><LiveDot/><div style={{width:1,height:20,background:"rgba(255,255,255,.2)"}}/><button onClick={()=>{setPin("");setAccessRole(null);go("welcome");}} style={{padding:"8px 18px",background:"rgba(255,255,255,.12)",color:B.white,border:"1px solid rgba(255,255,255,.25)",borderRadius:8,fontSize:12}}>Exit</button></div>
+      </div>
+      {accessRole==="cosec"&&<div style={{background:B.tealLt,borderBottom:`1px solid rgba(11,122,110,.2)`,padding:"9px 2rem",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:13}}>📋</span><span style={{fontSize:13,color:B.teal}}><strong>Company Secretary view</strong> — Full access to all results, trends, and question configuration.</span></div>}
+
+      <div style={{background:B.white,borderBottom:`1px solid ${B.border}`,padding:"0 2rem",display:"flex",gap:2}}>
+        {[["results","Results"],["trends","Trend Analysis"],["questions","Question Editor"]].map(([t,l])=>(
+          <button key={t} onClick={()=>setDashTab(t)} style={{padding:"14px 18px",border:"none",background:"transparent",fontSize:13,fontWeight:dashTab===t?600:400,color:dashTab===t?role.color:B.muted,borderBottom:dashTab===t?`3px solid ${role.color}`:"3px solid transparent",transition:"all .2s"}}>{l}</button>
+        ))}
+      </div>
+
+      <div style={{padding:"1.75rem 2rem",maxWidth:860,margin:"0 auto"}}>
+
+        {dashTab==="results"&&(
+          <div className="au">
+            {/* QR code + meeting context */}
+            <div style={{...dcStyle,display:"grid",gridTemplateColumns:"auto 1fr",gap:"2rem",alignItems:"center"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+                <div style={{padding:12,background:B.white,border:`2px solid ${role.color}`,borderRadius:16,boxShadow:`0 4px 24px ${role.color}25`}}>
+                  <QRDisplay url={surveyUrl} size={148}/>
+                </div>
+                <div style={{fontSize:10,color:B.light,textAlign:"center",lineHeight:1.4}}>Point camera to open survey</div>
+              </div>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"0.75rem"}}><LiveDot/><span style={{fontSize:13,color:B.muted,fontWeight:500}}>Survey open — responses arriving live</span></div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",color:B.navy,marginBottom:"0.25rem"}}>{toolName}</div>
+                {clientName&&<div style={{fontSize:13,color:B.gold,fontWeight:500,marginBottom:"0.2rem"}}>{clientName}</div>}
+                {dateFmt&&<div style={{fontSize:12,color:B.light,marginBottom:"1rem"}}>{dateFmt}</div>}
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:"1rem"}}>
+                  {fmtObj&&<MetaChip icon={fmtObj.icon} label="Format" value={fmtObj.label}/>}
+                  {duration&&<MetaChip icon="⏱" label="Duration" value={duration}/>}
+                  {packSize&&<MetaChip icon="📄" label="Pack" value={packSize}/>}
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:B.navyXl,borderRadius:8,border:`1px solid ${B.border}`}}>
+                  <span style={{fontSize:12,color:B.muted,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{surveyUrl}</span>
+                  <button onClick={copyLink} style={{padding:"5px 12px",background:copied?B.success:role.color,color:B.white,border:"none",borderRadius:6,fontSize:11,fontWeight:600,flexShrink:0,transition:"background .2s"}}>{copied?"Copied ✓":"Copy Link"}</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Score ring + stats */}
+            <div style={{display:"grid",gridTemplateColumns:"auto 1fr 1fr 1fr",gap:14,marginBottom:"1.25rem"}}>
+              <div style={{...dcStyle,marginBottom:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:"1.5rem 1.75rem"}}>
+                <ScoreRing score={overall} size={96} color={role.color}/>
+                <div style={{fontSize:10,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600}}>Overall</div>
+                {overall&&<span style={{fontSize:10,color:sCol(overall),fontWeight:600}}>{sLbl(overall).toUpperCase()}</span>}
+              </div>
+              {[
+                {l:"Responses",v:LIVE_SUBS.length,s:"members responded"},
+                {l:"Strongest",v:ratingQs[dimAvgs.indexOf(Math.max(...dimAvgs.filter(Boolean)))]?.dim.split(" ")[0]||"—",s:fmt(Math.max(...dimAvgs.filter(Boolean)))+" / 5.0"},
+                {l:"Focus Area",v:ratingQs[dimAvgs.indexOf(Math.min(...dimAvgs.filter(Boolean)))]?.dim.split(" ")[0]||"—",s:fmt(Math.min(...dimAvgs.filter(Boolean)))+" / 5.0"},
+              ].map(({l,v,s})=>(<div key={l} style={{...dcStyle,marginBottom:0,padding:"1.25rem 1.5rem"}}><div style={{fontSize:10,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:"0.5rem"}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",color:role.color,lineHeight:1,marginBottom:"0.25rem"}}>{v}</div><div style={{fontSize:11,color:B.muted}}>{s}</div></div>))}
+            </div>
+
+            <div style={dcStyle}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}><div style={{fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600}}>Score by Dimension</div><div style={{fontSize:11,color:B.muted}}>{dateFmt}</div></div>
+              {ratingQs.map((q,i)=><BarRow key={q.id} label={q.dim} score={dimAvgs[i]} color={WHL[i%10]}/>)}
+            </div>
+
+            {(texts9.length>0||texts10.length>0)&&(
+              <div style={dcStyle}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.5rem"}}>
+                  {texts9.length>0&&<div><div style={{fontSize:10,letterSpacing:"2px",textTransform:"uppercase",color:B.navy,fontWeight:700,marginBottom:"0.75rem"}}>What Worked Well</div>{texts9.map((t,i)=><div key={i} style={{padding:"0.75rem 1rem",background:B.navyLt,borderRadius:10,fontSize:12,color:B.text,marginBottom:8,lineHeight:1.7,borderLeft:`3px solid ${B.navy}`}}>{t}</div>)}</div>}
+                  {texts10.length>0&&<div><div style={{fontSize:10,letterSpacing:"2px",textTransform:"uppercase",color:B.gold,fontWeight:700,marginBottom:"0.75rem"}}>Improvements Suggested</div>{texts10.map((t,i)=><div key={i} style={{padding:"0.75rem 1rem",background:B.goldLt,borderRadius:10,fontSize:12,color:B.text,marginBottom:8,lineHeight:1.7,borderLeft:`3px solid ${B.gold}`}}>{t}</div>)}</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {dashTab==="trends"&&(
+          <div className="au">
+            <div style={{display:"flex",gap:10,marginBottom:"1.25rem",flexWrap:"wrap"}}>
+              {TREND_CLIENTS.map(c=>(<button key={c.id} onClick={()=>setTrendId(c.id)} style={{padding:"10px 18px",borderRadius:10,border:`1.5px solid ${trendId===c.id?role.color:B.border}`,background:trendId===c.id?role.colorLt:B.white,color:trendId===c.id?role.color:B.muted,fontSize:13,fontWeight:trendId===c.id?600:400,transition:"all .2s"}}>{c.name} <span style={{fontSize:10,color:B.light,marginLeft:6}}>{c.industry}</span></button>))}
+            </div>
+
+            <div style={dcStyle}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem",flexWrap:"wrap",gap:8}}>
+                <div><div style={{fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:4}}>Overall Score — Meeting Trend</div><div style={{fontSize:13,color:B.muted}}>{tc.name} · {tc.boardSize}-member board · {tc.mtgs.length} meetings on record</div></div>
+                {tc.mtgs.length>=2&&(()=>{const diff=av(tc.mtgs[tc.mtgs.length-1].scores)-av(tc.mtgs[0].scores);return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:999,background:diff>=0?"#EDF7F2":"#FDF0F0",color:diff>=0?B.success:B.danger,fontSize:12,fontWeight:600}}>{diff>=0?"▲":"▼"} {Math.abs(diff).toFixed(1)} since first meeting</div>;})()}
+              </div>
+              <div style={{display:"flex",gap:16,alignItems:"flex-end",height:170,paddingBottom:8}}>
+                {tc.mtgs.map((m,i)=>{
+                  const s=av(m.scores),h=s?(s/5)*140:0,col=s?sCol(s):B.border,fObj=FORMATS.find(f=>f.label===m.format);
+                  return(
+                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
+                      <div style={{fontSize:13,fontWeight:700,color:col}}>{s?s.toFixed(1):"—"}</div>
+                      <div style={{width:"100%",background:B.navyXl,borderRadius:"8px 8px 0 0",height:140,display:"flex",alignItems:"flex-end",overflow:"hidden"}}><div style={{width:"100%",background:col,borderRadius:"8px 8px 0 0",height:`${h}px`,transition:"height 1.4s cubic-bezier(.4,0,.2,1)"}}/></div>
+                      <div style={{fontSize:10,color:B.light,textAlign:"center",lineHeight:1.4}}>
+                        <div style={{fontWeight:600,color:B.text,fontSize:11}}>{m.title}</div>
+                        <div>{m.date}</div>
+                        <div style={{display:"flex",justifyContent:"center",gap:3,marginTop:3,flexWrap:"wrap"}}>
+                          {fObj&&<span style={{padding:"1px 5px",background:B.navyXl,borderRadius:4,fontSize:9}}>{fObj.icon} {m.format}</span>}
+                          {m.duration&&<span style={{padding:"1px 5px",background:B.navyXl,borderRadius:4,fontSize:9}}>⏱{m.duration}</span>}
+                        </div>
+                        {m.packSize&&<div style={{fontSize:9,color:B.light,marginTop:2}}>📄{m.packSize}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={dcStyle}>
+              <div style={{fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:"1.25rem"}}>Average Scores Across All Meetings</div>
+              {ratingQs.map((q,i)=>{const vals=tc.mtgs.map(m=>m.scores[i]).filter(v=>typeof v==="number");return <BarRow key={q.id} label={q.dim} score={vals.length?vals.reduce((a,b)=>a+b)/vals.length:null} color={WHL[i%10]}/>;})}</div>
+
+            <div style={dcStyle}>
+              <div style={{fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:"1.25rem"}}>Recurring Themes — All Meetings</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.25rem"}}>
+                <div><div style={{fontSize:11,color:B.navy,fontWeight:700,marginBottom:"0.6rem"}}>Strengths</div>{tc.mtgs.flatMap(m=>m.t7||[]).map((t,i)=><div key={i} style={{padding:"0.6rem .9rem",background:B.navyLt,borderRadius:8,fontSize:12,marginBottom:6,lineHeight:1.6,borderLeft:`2px solid ${B.navy}`}}>{t}</div>)}</div>
+                <div><div style={{fontSize:11,color:B.warn,fontWeight:700,marginBottom:"0.6rem"}}>Recurring Improvements</div>{tc.mtgs.flatMap(m=>m.t8||[]).map((t,i)=><div key={i} style={{padding:"0.6rem .9rem",background:B.goldLt,borderRadius:8,fontSize:12,marginBottom:6,lineHeight:1.6,borderLeft:`2px solid ${B.gold}`}}>{t}</div>)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dashTab==="questions"&&(
+          <div className="au">
+            <div style={dcStyle}>
+              <div style={{fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:4}}>Active Question Set — {toolName}</div>
+              <div style={{fontSize:13,color:B.muted,marginBottom:"1.5rem"}}>Toggle on/off · Click any question text to edit · Changes apply from the next meeting.</div>
+              {questions.map((q,i)=>(
+                <div key={q.id} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"1rem",border:`1px solid ${q.active!==false?B.border:B.borderLt}`,borderRadius:12,marginBottom:10,background:q.active!==false?B.navyXl:"#FAFAFA",opacity:q.active!==false?1:.5,transition:"all .2s"}}>
+                  <button onClick={()=>setQuestions(qs=>qs.map((qq,ii)=>ii===i?{...qq,active:qq.active!==false?false:true}:qq))} style={{width:36,height:20,borderRadius:10,background:q.active!==false?role.color:"#DDD",border:"none",position:"relative",flexShrink:0,marginTop:3,transition:"background .2s"}}><div style={{width:14,height:14,borderRadius:"50%",background:B.white,position:"absolute",top:3,left:q.active!==false?19:3,transition:"left .2s"}}/></button>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:q.type==="rating"?WHL[i%10]:B.gold,fontWeight:700,marginBottom:5}}>{q.dim}{q.optional?" · Optional":""}</div>
+                    {editIdx===i?<textarea autoFocus style={{width:"100%",fontSize:13,border:`1.5px solid ${role.color}`,borderRadius:6,padding:"8px 10px",lineHeight:1.5,resize:"none",outline:"none",minHeight:70}} value={q.text} onChange={e=>setQuestions(qs=>qs.map((qq,ii)=>ii===i?{...qq,text:e.target.value}:qq))} onBlur={()=>setEditIdx(null)}/>:<div style={{fontSize:13,color:B.text,lineHeight:1.6,cursor:"pointer"}} onClick={()=>setEditIdx(i)}>{q.text} <span style={{color:B.light,fontSize:11}}>✎</span></div>}
+                  </div>
+                  <div style={{fontSize:10,color:B.light,background:B.white,padding:"4px 10px",borderRadius:999,border:`1px solid ${B.border}`,flexShrink:0}}>{q.type==="rating"?"1–5":"Open text"}</div>
+                </div>
+              ))}
+            </div>
+            {bankQ.length>0&&(
+              <div style={{...dcStyle,background:role.colorLt}}>
+                <div style={{fontSize:11,letterSpacing:"2px",textTransform:"uppercase",color:role.color,fontWeight:700,marginBottom:4}}>{mtName} Question Bank</div>
+                <div style={{fontSize:13,color:B.muted,marginBottom:"1.25rem"}}>Questions tailored to this committee type from the Sustainable Boards 9-Pillar Framework. Click + to add.</div>
+                {bankQ.map((q)=>(<div key={q.id} style={{display:"flex",gap:12,alignItems:"center",padding:".9rem 1rem",border:`1px solid ${B.border}`,borderRadius:10,marginBottom:8,background:B.white}}><div style={{flex:1}}><div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:B.light,fontWeight:600,marginBottom:4}}>{q.dim}</div><div style={{fontSize:13,color:B.muted,lineHeight:1.5}}>{q.text}</div></div><button onClick={()=>addFromBank(q)} style={{width:32,height:32,borderRadius:"50%",background:role.color,color:B.white,border:"none",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button></div>))}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+</script>
+</body>
+</html>
