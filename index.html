@@ -58,29 +58,6 @@ const BANK={
   custom:[{id:11,dim:"Stakeholder Focus",text:"The meeting gave appropriate consideration to the interests of key stakeholders.",type:"rating"},{id:12,dim:"Information Quality",text:"The quality and depth of information was appropriate for the decisions required.",type:"rating"}],
 };
 
-const DEMO_SUBS=[
-  {1:4,2:3,3:5,4:4,5:4,6:3,7:4,8:4,9:"The CEO's strategic presentation was exceptionally clear",10:"Pre-reading arrived less than 48 hours before the meeting"},
-  {1:5,2:4,3:4,4:4,5:5,6:4,7:5,8:4,9:"The CFO's risk update gave the board exactly what it needed",10:"The technology item was cut short — it deserved more time"},
-  {1:4,2:4,3:5,4:3,5:4,6:4,7:4,8:4,10:"One voice dominated the sustainability discussion"},
-  {1:5,2:5,3:4,4:4,5:4,6:4,7:5,8:5,9:"Best-structured agenda we have had in two years"},
-  {1:4,2:4,3:3,4:4,5:4,6:4,7:4,8:4,10:"Some members did not contribute to the M&A discussion"},
-  {1:5,2:4,3:4,4:5,5:5,6:3,7:4,8:4,9:"Good honest challenge on the budget assumptions",10:"The second half of the meeting was noticeably rushed"},
-  {1:4,2:4,3:4,4:4,5:3,6:3,7:4,8:4,10:"The investment decision lacked clear accountability"},
-];
-
-const TREND_CLIENTS=[
-  {id:"A",name:"Meridian Financial Group",industry:"Financial Services",boardSize:10,mtgs:[
-    {date:"Sep 2024",title:"Q3 2024",n:8,scores:[4.1,3.7,4.3,3.8,3.9,3.6,4.0,3.9],duration:"2 hrs",format:"In Person",packSize:"100–150 pp",t7:["Strong CEO presentation on M&A strategy"],t8:["Pre-reads arrived with less than 24 hours notice"]},
-    {date:"Dec 2024",title:"Q4 2024",n:9,scores:[4.3,4.0,4.2,4.1,4.2,4.0,4.2,4.2],duration:"2.5 hrs",format:"Hybrid",packSize:"100–150 pp",t7:["Excellent debate on the proposed acquisition"],t8:["Risk committee report needed more time"]},
-    {date:"Mar 2025",title:"Q1 2025",n:10,scores:[4.6,4.4,4.5,4.4,4.6,4.3,4.6,4.5],duration:"2 hrs",format:"In Person",packSize:"50–100 pp",t7:["Best-structured meeting in two years"],t8:["Digital literacy discussion could go deeper"]},
-  ]},
-  {id:"B",name:"Northgate Healthcare Trust",industry:"Healthcare",boardSize:9,mtgs:[
-    {date:"Nov 2024",title:"Q3 2024",n:7,scores:[3.3,3.1,3.7,3.0,3.4,3.5,3.1,3.2],duration:"3 hrs",format:"Online",packSize:"150+ pp",t7:["Finance committee report was well structured"],t8:["One member consistently dominating discussion"]},
-    {date:"Jan 2025",title:"Q4 2024",n:7,scores:[3.6,3.4,3.9,3.3,3.7,3.7,3.5,3.5],duration:"2.5 hrs",format:"Hybrid",packSize:"100–150 pp",t7:["Improvement in inclusion following coaching session"],t8:["Strategic items still being cut short"]},
-    {date:"Mar 2025",title:"Q1 2025",n:8,scores:[3.9,3.8,4.1,3.7,3.9,4.0,4.1,3.9],duration:"2 hrs",format:"In Person",packSize:"50–100 pp",t7:["Chair facilitation significantly improved"],t8:["Risk register presentation was rushed"]},
-  ]},
-];
-
 const SCALE_LABELS=["","Strongly Disagree","Disagree","Neutral","Agree","Strongly Agree"];
 const SCALE_COLS=["","#B02020","#C86020","#A87018","#1A7A42","#1B2F72"];
 const av=(arr)=>{const v=arr.filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b)/v.length:null;};
@@ -172,8 +149,6 @@ function QRDisplay({url,size=152}){
   return <div ref={ref} style={{lineHeight:0,display:"inline-block"}}/>;
 }
 
-let LIVE_SUBS=[...DEMO_SUBS];
-
 // --- Supabase connection ---------------------------------------------------
 // config.js (gitignored, present in local dev) can override these by setting
 // window.SUPABASE_* before this script runs. On Azure Static Web Apps config.js
@@ -210,7 +185,7 @@ function App(){
   const [dashTab,setDashTab]=useState("results");
   const [trendId,setTrendId]=useState("A");
   const [editIdx,setEditIdx]=useState(null);
-  const [subs,setSubs]=useState(DEMO_SUBS);
+  const [subs,setSubs]=useState([]);
   const [workspaceId,setWorkspaceId]=useState(null);
   const [meetingId,setMeetingId]=useState(null);
   const [verifiedPin,setVerifiedPin]=useState("");
@@ -244,7 +219,7 @@ function App(){
   const texts9=subs.map(s=>s[9]).filter(Boolean);
   const texts10=subs.map(s=>s[10]).filter(Boolean);
   const realTrends=!!db;
-  const tc=realTrends?{name:clientName||mtTitle||"This workspace",industry:"",boardSize:0,mtgs:trendMtgs||[]}:(TREND_CLIENTS.find(c=>c.id===trendId)||TREND_CLIENTS[0]);
+  const tc={name:clientName||mtTitle||"This workspace",industry:"",boardSize:0,mtgs:trendMtgs||[]};
   const slug=clientName.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"")||"your-board";
   const surveyUrl=`https://pulse.sustainable-boards.com/${slug}/${mtId==="custom"?"meeting":mtId}`;
   // The real, scannable link points THIS app at one specific meeting via ?w=&m=.
@@ -671,7 +646,7 @@ function App(){
             <div style={{display:"flex",gap:10,marginBottom:"1.25rem",flexWrap:"wrap"}}>
               {realTrends?(
                 <div style={{padding:"10px 18px",borderRadius:10,border:`1.5px solid ${role.color}`,background:role.colorLt,color:role.color,fontSize:13,fontWeight:600}}>{tc.name} <span style={{fontSize:10,color:B.light,marginLeft:6}}>{tc.mtgs.length} meeting{tc.mtgs.length===1?"":"s"}</span></div>
-              ):TREND_CLIENTS.map(c=>(<button key={c.id} onClick={()=>setTrendId(c.id)} style={{padding:"10px 18px",borderRadius:10,border:`1.5px solid ${trendId===c.id?role.color:B.border}`,background:trendId===c.id?role.colorLt:B.white,color:trendId===c.id?role.color:B.muted,fontSize:13,fontWeight:trendId===c.id?600:400,transition:"all .2s"}}>{c.name} <span style={{fontSize:10,color:B.light,marginLeft:6}}>{c.industry}</span></button>))}
+              ):null}
             </div>
 
             <div style={dcStyle}>
