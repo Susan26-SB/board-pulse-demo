@@ -174,9 +174,14 @@ function QRDisplay({url,size=152}){
 
 let LIVE_SUBS=[...DEMO_SUBS];
 
-// --- Supabase connection (credentials live in config.js, which is gitignored) ---
-const SB_URL=window.SUPABASE_URL||"";
-const SB_KEY=window.SUPABASE_ANON_KEY||"";
+// --- Supabase connection ---------------------------------------------------
+// config.js (gitignored, present in local dev) can override these by setting
+// window.SUPABASE_* before this script runs. On Azure Static Web Apps config.js
+// is not deployed, so we fall back to the committed anon/public credentials
+// below. The anon key is designed to be used in the browser and is protected by
+// Row Level Security — it is safe to ship. NEVER put the service_role key here.
+const SB_URL=window.SUPABASE_URL||"https://xpooueccjznpmwpmbutm.supabase.co";
+const SB_KEY=window.SUPABASE_ANON_KEY||"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhwb291ZWNjanpucG13cG1idXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MDI1NDIsImV4cCI6MjA5Njk3ODU0Mn0.WzSdDigrAQycxC5F2rPh6StP4oPpl8JRfisO30-IRB8";
 const SLUG=window.PULSE_WORKSPACE_SLUG||"demo";
 const SB_READY=/^https:\/\/.+\.supabase\.co/.test(SB_URL)&&SB_KEY.indexOf("eyJ")===0;
 const db=(SB_READY&&window.supabase)?window.supabase.createClient(SB_URL,SB_KEY):null;
