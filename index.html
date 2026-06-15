@@ -222,10 +222,9 @@ function App(){
   const texts10=subs.map(s=>s[10]).filter(Boolean);
   const realTrends=!!db;
   const tc={name:clientName||mtTitle||"This workspace",industry:"",boardSize:0,mtgs:trendMtgs||[]};
-  const slug=clientName.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"")||"your-board";
-  const surveyUrl=`https://pulse.sustainable-boards.com/${slug}/${mtId==="custom"?"meeting":mtId}`;
-  // The real, scannable link points THIS app at one specific meeting via ?w=<slug>&m=<id>.
-  const shareUrl=(workspaceId&&meetingId)?`${window.location.origin}${window.location.pathname}?w=${SLUG}&m=${meetingId}`:surveyUrl;
+  // Scannable link points THIS app at the workspace (?w=<slug>) and, when a meeting
+  // is open, that specific meeting (&m=<id>). Always a real SPA route, never a 404.
+  const shareUrl=`${window.location.origin}${window.location.pathname}?w=${SLUG}`+(meetingId?`&m=${meetingId}`:"");
   const fmtObj=FORMATS.find(f=>f.id===format);
 
   useEffect(()=>{const k=mtId==="custom"?"custom":mtId;setBankQ((BANK[k]||BANK.board).map(q=>({...q})));},[mtId]);
