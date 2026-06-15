@@ -157,7 +157,9 @@ function QRDisplay({url,size=152}){
 // Row Level Security — it is safe to ship. NEVER put the service_role key here.
 const SB_URL=window.SUPABASE_URL||"https://xpooueccjznpmwpmbutm.supabase.co";
 const SB_KEY=window.SUPABASE_ANON_KEY||"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhwb291ZWNjanpucG13cG1idXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MDI1NDIsImV4cCI6MjA5Njk3ODU0Mn0.WzSdDigrAQycxC5F2rPh6StP4oPpl8JRfisO30-IRB8";
-const SLUG=window.PULSE_WORKSPACE_SLUG||"demo";
+// Which client workspace to load: ?w=<slug> in the URL selects it (multi-client),
+// otherwise fall back to this deployment's configured default.
+const SLUG=new URLSearchParams(window.location.search).get("w")||window.PULSE_WORKSPACE_SLUG||"demo";
 const SB_READY=/^https:\/\/.+\.supabase\.co/.test(SB_URL)&&SB_KEY.indexOf("eyJ")===0;
 const db=(SB_READY&&window.supabase)?window.supabase.createClient(SB_URL,SB_KEY):null;
 // If db is null the app runs in offline DEMO mode exactly as before.
@@ -222,8 +224,8 @@ function App(){
   const tc={name:clientName||mtTitle||"This workspace",industry:"",boardSize:0,mtgs:trendMtgs||[]};
   const slug=clientName.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"")||"your-board";
   const surveyUrl=`https://pulse.sustainable-boards.com/${slug}/${mtId==="custom"?"meeting":mtId}`;
-  // The real, scannable link points THIS app at one specific meeting via ?w=&m=.
-  const shareUrl=(workspaceId&&meetingId)?`${window.location.origin}${window.location.pathname}?w=${workspaceId}&m=${meetingId}`:surveyUrl;
+  // The real, scannable link points THIS app at one specific meeting via ?w=<slug>&m=<id>.
+  const shareUrl=(workspaceId&&meetingId)?`${window.location.origin}${window.location.pathname}?w=${SLUG}&m=${meetingId}`:surveyUrl;
   const fmtObj=FORMATS.find(f=>f.id===format);
 
   useEffect(()=>{const k=mtId==="custom"?"custom":mtId;setBankQ((BANK[k]||BANK.board).map(q=>({...q})));},[mtId]);
